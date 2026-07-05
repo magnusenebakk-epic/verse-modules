@@ -5,8 +5,8 @@ using { /Verse.org/Simulation }
 using { /Fortnite.com/Playspaces }
 using { /Fortnite.com/Characters }
 using { /Verse.org/Simulation }
-using { Gameplay.Abilities }
-using { Gameplay.Stats }
+using { Abilities }
+using { Stats }
 
 <#> Global Aliases
 LUF := import(/Verse.org/SpatialMath)
