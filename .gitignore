@@ -1,0 +1,8 @@
+# Library of Verse modules: track only .verse source
+*
+!*/
+!*.verse
+!.gitignore
+
+# Game-specific content, not part of the library
+Content/EpicRPG/
