@@ -7,6 +7,7 @@ Algorithms<public> := module:
 # collections; Content/Collections is the editor's, not a Verse module).
 DataStructures<public> := module:
 Chess<public> := module:
+Placement<public> := module:
 Script<public> := module:
 Stats<public> := module:
 Abilities<public> := module:

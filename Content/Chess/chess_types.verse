@@ -51,6 +51,10 @@ chess_position<public> := class:
     EnPassant<public>:?int
     HalfmoveClock<public>:int
     FullmoveNumber<public>:int
+    # Cached king squares, maintained by Apply. Avoids a 64-square scan per
+    # InCheck call, the search hot path (~30 calls per node).
+    WhiteKing<public>:int
+    BlackKing<public>:int
 
 
 (C:chess_color).Opposite<public>()<computes>:chess_color =
@@ -60,11 +64,14 @@ chess_position<public> := class:
 
 # --- Square geometry ---------------------------------------------------------
 
+# Quotient/Mod, NOT Floor(Sq / 8): int/int division allocates a RATIONAL
+# (arbitrary precision) per call, and these run thousands of times per
+# search node. Quotient/Mod are int-native.
 RankOf<public>(Sq:int)<computes><decides>:int =
-    Floor(Sq / 8)
+    Quotient[Sq, 8]
 
 FileOf<public>(Sq:int)<computes><decides>:int =
-    Sq - (Floor(Sq / 8) * 8)
+    Mod[Sq, 8]
 
 SquareAt<public>(F:int, R:int)<computes>:int =
     R * 8 + F

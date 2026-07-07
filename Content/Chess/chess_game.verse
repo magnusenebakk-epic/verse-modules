@@ -10,11 +10,13 @@ using { /UnrealEngine.com/Itemization } # result types
 # inside any component, device or test.
 
 # What actually happened, for displays: Captured is the removed piece (incl
-# en passant), RookHop is the extra rook move on castling.
+# en passant) and CapturedSquare is where it stood (= Move.To except en
+# passant). RookHop is the extra rook move on castling.
 chess_move_applied<public> := class:
     Move<public>:chess_move
     Mover<public>:chess_piece
     Captured<public>:?chess_piece
+    CapturedSquare<public>:?int
     RookHop<public>:?chess_move
     # Position AFTER the move.
     NewPosition<public>:chess_position
@@ -106,22 +108,31 @@ chess_game<public> := class<internal>:
         Mover := PieceAt[Prev, M.From]
         Next := Apply[Prev, M]
         # Describe side effects for displays before mutating.
-        EPCapture:?chess_piece =
+        # Where a captured piece stood: To for normal captures, the passed
+        # pawn's square for en passant. The FACT lives here, not re-derived
+        # by displays.
+        IsEP:logic =
             if:
                 Mover.Kind = chess_piece_kind.Pawn
                 EP := Prev.EnPassant?
                 EP = M.To
                 not option{PieceAt[Prev, M.To]}?
             then:
-                PassedSq := if (Prev.ToMove = chess_color.White) then M.To - 8 else M.To + 8
-                option{PieceAt[Prev, PassedSq]}
+                true
+            else:
+                false
+        CapturedSquare:?int =
+            if (IsEP?):
+                option{if (Prev.ToMove = chess_color.White) then M.To - 8 else M.To + 8}
+            else if (option{PieceAt[Prev, M.To]}?):
+                option{M.To}
             else:
                 false
         Captured:?chess_piece =
-            if (C := PieceAt[Prev, M.To]):
-                option{C}
+            if (Sq := CapturedSquare?):
+                option{PieceAt[Prev, Sq]}
             else:
-                EPCapture
+                false
         RookHop:?chess_move =
             if (Mover.Kind = chess_piece_kind.King, FF := FileOf[M.From], TF := FileOf[M.To], R := RankOf[M.From]):
                 if (TF - FF = 2):
@@ -143,6 +154,7 @@ chess_game<public> := class<internal>:
             Move := M
             Mover := Mover
             Captured := Captured
+            CapturedSquare := CapturedSquare
             RookHop := RookHop
             NewPosition := Next
             GaveCheck := GaveCheck

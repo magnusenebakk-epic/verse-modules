@@ -14,8 +14,8 @@ StartingPosition<public>()<transacts>:chess_position =
         chess_piece_kind.Knight, chess_piece_kind.Rook}
     var Squares:[]?chess_piece = array{}
     for (Sq := 0..63):
-        R := Floor(Sq / 8) or 0
-        F := Sq - R * 8
+        R := Quotient[Sq, 8] or 0
+        F := Mod[Sq, 8] or 0
         Piece:?chess_piece =
             if (R = 0, K := BackRank[F]):
                 option{chess_piece{Color := chess_color.White, Kind := K}}
@@ -38,18 +38,16 @@ StartingPosition<public>()<transacts>:chess_position =
         EnPassant := false
         HalfmoveClock := 0
         FullmoveNumber := 1
+        WhiteKing := 4
+        BlackKing := 60
 
 PieceAt<public>(P:chess_position, Sq:int)<transacts><decides>:chess_piece =
     P.Squares[Sq]?
 
+# Field read via the position's cache (kept <decides> for API stability;
+# it no longer fails).
 KingSquare<public>(P:chess_position, C:chess_color)<transacts><decides>:int =
-    first:
-        Sq -> MaybePc : P.Squares
-        Pc := MaybePc?
-        Pc.Kind = chess_piece_kind.King
-        Pc.Color = C
-    do:
-        Sq
+    if (C = chess_color.White) then P.WhiteKing else P.BlackKing
 
 # --- Attack detection ----------------------------------------------------------
 # IsSquareAttacked walks outward from the target square, so it needs no
@@ -148,62 +146,76 @@ PseudoMovesFrom<internal>(P:chess_position, From:int)<transacts>:[]chess_move =
     Moves
 
 StepMoves<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color, Steps:[]tuple(int, int))<transacts>:[]chess_move =
-    var Moves:[]chess_move = array{}
-    for (S : Steps):
-        if (OnBoardFR[F + S(0), R + S(1)]):
-            To := SquareAt(F + S(0), R + S(1))
-            Occupied := option{PieceAt[P, To]}
-            if (Pc := Occupied?):
-                if (not (Pc.Color = C)):
-                    set Moves += array{chess_move{From := From, To := To}}
-            else:
-                set Moves += array{chess_move{From := From, To := To}}
-    Moves
+    for:
+        S : Steps
+        OnBoardFR[F + S(0), R + S(1)]
+        To := SquareAt(F + S(0), R + S(1))
+        CanLandOn[P, To, C]
+    do:
+        chess_move{From := From, To := To}
+
+# Target square is empty or holds an enemy piece.
+CanLandOn<internal>(P:chess_position, To:int, C:chess_color)<transacts><decides>:void =
+    if (Pc := PieceAt[P, To]):
+        not (Pc.Color = C)
+    else:
+        true?
 
 SlideMoves<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color, Dirs:[]tuple(int, int))<transacts>:[]chess_move =
-    var Moves:[]chess_move = array{}
-    for (D : Dirs):
-        var CF:int = F
-        var CR:int = R
-        var Stopped:logic = false
-        loop:
-            set CF += D(0)
-            set CR += D(1)
-            if (Stopped? or not OnBoardFR[CF, CR]):
-                break
-            To := SquareAt(CF, CR)
-            if (Pc := PieceAt[P, To]):
-                set Stopped = true
-                if (not (Pc.Color = C)):
-                    set Moves += array{chess_move{From := From, To := To}}
-            else:
-                set Moves += array{chess_move{From := From, To := To}}
-    Moves
+    for:
+        D : Dirs
+        To : RayTargets(P, F, R, D, C)
+    do:
+        chess_move{From := From, To := To}
+
+# Empty squares along one ray plus the first hostile hit.
+RayTargets<internal>(P:chess_position, F:int, R:int, D:tuple(int, int), C:chess_color)<transacts>:[]int =
+    var Targets:[]int = array{}
+    var CF:int = F
+    var CR:int = R
+    loop:
+        set CF += D(0)
+        set CR += D(1)
+        if (not OnBoardFR[CF, CR]):
+            break
+        To := SquareAt(CF, CR)
+        if (Pc := PieceAt[P, To]):
+            if (not (Pc.Color = C)):
+                set Targets += array{To}
+            break
+        set Targets += array{To}
+    Targets
 
 PawnMoves<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color)<transacts>:[]chess_move =
-    var Moves:[]chess_move = array{}
     Dir := if (C = chess_color.White) then 1 else -1
     StartRank := if (C = chess_color.White) then 1 else 6
     PromoRank := if (C = chess_color.White) then 7 else 0
-    # Pushes.
-    if (OnBoardFR[F, R + Dir], not option{PieceAt[P, SquareAt(F, R + Dir)]}?):
-        set Moves += PawnTargets(From, SquareAt(F, R + Dir), R + Dir, PromoRank)
-        if (R = StartRank, not option{PieceAt[P, SquareAt(F, R + 2 * Dir)]}?):
-            set Moves += array{chess_move{From := From, To := SquareAt(F, R + 2 * Dir)}}
-    # Captures, including en passant.
-    for (DF : array{-1, 1}):
-        if (OnBoardFR[F + DF, R + Dir]):
-            To := SquareAt(F + DF, R + Dir)
-            CanCapture:logic =
-                if (Pc := PieceAt[P, To]):
-                    if (Pc.Color = C) then false else true
-                else if (EP := P.EnPassant?, EP = To):
-                    true
-                else:
-                    false
-            if (CanCapture?):
-                set Moves += PawnTargets(From, To, R + Dir, PromoRank)
-    Moves
+    OneClear:logic =
+        if (OnBoardFR[F, R + Dir], not option{PieceAt[P, SquareAt(F, R + Dir)]}?):
+            true
+        else:
+            false
+    Pushes := if (OneClear?):
+        PawnTargets(From, SquareAt(F, R + Dir), R + Dir, PromoRank)
+    else:
+        array{}
+    Doubles := if:
+        OneClear?
+        R = StartRank
+        not option{PieceAt[P, SquareAt(F, R + 2 * Dir)]}?
+    then:
+        array{chess_move{From := From, To := SquareAt(F, R + 2 * Dir)}}
+    else:
+        array{}
+    Captures := for:
+        DF : array{-1, 1}
+        OnBoardFR[F + DF, R + Dir]
+        To := SquareAt(F + DF, R + Dir)
+        CanCaptureAt[P, To, C]
+        M : PawnTargets(From, To, R + Dir, PromoRank)
+    do:
+        M
+    Pushes + Doubles + Captures
 
 # One move, or four on the promotion rank.
 PawnTargets<internal>(From:int, To:int, ToRank:int, PromoRank:int)<transacts>:[]chess_move =
@@ -298,6 +310,7 @@ Apply<public>(P:chess_position, M:chess_move)<transacts><decides>:chess_position
         else:
             false
     ResetClock:logic = if (IsPawn? or Captured?) then true else false
+    IsKing:logic = if (Mover.Kind = chess_piece_kind.King) then true else false
     chess_position:
         Squares := Squares
         ToMove := P.ToMove.Opposite()
@@ -308,6 +321,8 @@ Apply<public>(P:chess_position, M:chess_move)<transacts><decides>:chess_position
         EnPassant := NewEP
         HalfmoveClock := if (ResetClock?) then 0 else P.HalfmoveClock + 1
         FullmoveNumber := if (P.ToMove = chess_color.Black) then P.FullmoveNumber + 1 else P.FullmoveNumber
+        WhiteKing := if (IsKing?, Mover.Color = chess_color.White) then M.To else P.WhiteKing
+        BlackKing := if (IsKing?, Mover.Color = chess_color.Black) then M.To else P.BlackKing
 
 UpdateRight<internal>(Right:logic, M:chess_move, KingSq:int, RookSq:int)<computes>:logic =
     if (Right?, not (M.From = KingSq), not (M.From = RookSq), not (M.To = RookSq)):
@@ -332,11 +347,114 @@ LegalMovesFrom<public>(P:chess_position, From:int)<transacts>:[]chess_move =
     do:
         M
 
+# Flat-map comprehensions, not var+append: each `set Moves += ...` copies
+# the accumulated array, O(n^2) per call, and these run at EVERY search node.
 AllLegalMoves<public>(P:chess_position)<transacts>:[]chess_move =
-    var Moves:[]chess_move = array{}
-    for (Sq := 0..63):
-        set Moves += LegalMovesFrom(P, Sq)
-    Moves
+    for:
+        Sq := 0..63
+        M : LegalMovesFrom(P, Sq)
+    do:
+        M
+
+# Pseudo-legal moves for the whole side. The search uses these and skips
+# king-in-check children during expansion, halving Apply+InCheck work vs
+# generating fully legal moves at every node.
+AllPseudoMoves<public>(P:chess_position)<transacts>:[]chess_move =
+    for:
+        Sq := 0..63
+        M : PseudoMovesFrom(P, Sq)
+    do:
+        M
+
+# Capture/promotion pseudo-moves only, generated directly. Quiescence runs
+# at most search nodes; generating ~30 moves to keep ~3 was its main cost.
+AllNoisyPseudoMoves<public>(P:chess_position)<transacts>:[]chess_move =
+    for:
+        Sq := 0..63
+        M : NoisyPseudoMovesFrom(P, Sq)
+    do:
+        M
+
+NoisyPseudoMovesFrom<internal>(P:chess_position, From:int)<transacts>:[]chess_move =
+    if:
+        Pc := PieceAt[P, From]
+        Pc.Color = P.ToMove
+        F := FileOf[From]
+        R := RankOf[From]
+    then:
+        case (Pc.Kind):
+            chess_piece_kind.Pawn => PawnNoisyMoves(P, From, F, R, Pc.Color)
+            chess_piece_kind.Knight => StepCaptures(P, From, F, R, Pc.Color, KnightJumps)
+            chess_piece_kind.King => StepCaptures(P, From, F, R, Pc.Color, KingSteps)
+            chess_piece_kind.Rook => SlideCaptures(P, From, F, R, Pc.Color, RookDirs)
+            chess_piece_kind.Bishop => SlideCaptures(P, From, F, R, Pc.Color, BishopDirs)
+            chess_piece_kind.Queen => SlideCaptures(P, From, F, R, Pc.Color, RookDirs + BishopDirs)
+    else:
+        array{}
+
+StepCaptures<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color, Steps:[]tuple(int, int))<transacts>:[]chess_move =
+    for:
+        S : Steps
+        OnBoardFR[F + S(0), R + S(1)]
+        To := SquareAt(F + S(0), R + S(1))
+        Victim := PieceAt[P, To]
+        not (Victim.Color = C)
+    do:
+        chess_move{From := From, To := To}
+
+# First piece along each ray, if hostile.
+SlideCaptures<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color, Dirs:[]tuple(int, int))<transacts>:[]chess_move =
+    for:
+        D : Dirs
+        Hit : FirstHitAlong(P, F, R, D)
+        Victim := PieceAt[P, Hit]
+        not (Victim.Color = C)
+    do:
+        chess_move{From := From, To := Hit}
+
+# 0- or 1-element array: the first occupied square along one ray.
+FirstHitAlong<internal>(P:chess_position, F:int, R:int, D:tuple(int, int))<transacts>:[]int =
+    var Found:[]int = array{}
+    var CF:int = F
+    var CR:int = R
+    loop:
+        set CF += D(0)
+        set CR += D(1)
+        if (not OnBoardFR[CF, CR]):
+            break
+        if (option{PieceAt[P, SquareAt(CF, CR)]}?):
+            set Found = array{SquareAt(CF, CR)}
+            break
+    Found
+
+# Diagonal captures (incl en passant) always; pushes only when they promote.
+PawnNoisyMoves<internal>(P:chess_position, From:int, F:int, R:int, C:chess_color)<transacts>:[]chess_move =
+    Dir := if (C = chess_color.White) then 1 else -1
+    PromoRank := if (C = chess_color.White) then 7 else 0
+    Captures := for:
+        DF : array{-1, 1}
+        OnBoardFR[F + DF, R + Dir]
+        To := SquareAt(F + DF, R + Dir)
+        CanCaptureAt[P, To, C]
+        M : PawnTargets(From, To, R + Dir, PromoRank)
+    do:
+        M
+    PromoPushes := if:
+        R + Dir = PromoRank
+        OnBoardFR[F, R + Dir]
+        not option{PieceAt[P, SquareAt(F, R + Dir)]}?
+    then:
+        PawnTargets(From, SquareAt(F, R + Dir), R + Dir, PromoRank)
+    else:
+        array{}
+    Captures + PromoPushes
+
+CanCaptureAt<internal>(P:chess_position, To:int, C:chess_color)<transacts><decides>:void =
+    if (Victim := PieceAt[P, To]):
+        not (Victim.Color = C)
+    else:
+        EP := P.EnPassant?
+        EP = To
 
 HasLegalMove<public>(P:chess_position)<transacts><decides>:void =
     var Found:logic = false

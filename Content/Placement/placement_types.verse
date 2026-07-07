@@ -16,7 +16,7 @@ placement_proposal<public> := class:
 
 
 # Fails when there's no valid proposal this tick
-placement_method<public> := class<abstract>:
+placement_method<public> := class<public><abstract>:
     ComputeProposal<public>(Query:placement_query)<transacts><decides>:placement_proposal
 
 
