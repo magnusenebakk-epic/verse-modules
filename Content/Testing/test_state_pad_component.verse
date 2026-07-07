@@ -31,7 +31,7 @@ test_state_pad_component<public> := class<final_super>(component):
         if (State := Entity.FindUnlockState[]):
             Count := (State.GetInt[CountKey()] or 0) + 1
             State.SetInt(CountKey(), Count)
-            State.SetFloat(ValueKey(), Count / 10.0)
+            State.SetFloat(ValueKey(), (1.0 * Count) / 10.0)
             Value := State.GetFloat[ValueKey()] or 0.0
             Print("TEST state[{Key}]: count={Count} value={Value}")
 

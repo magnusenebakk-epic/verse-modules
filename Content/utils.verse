@@ -5,6 +5,7 @@ using { /Verse.org/Simulation }
 using { /Fortnite.com/Playspaces }
 using { /Fortnite.com/Characters }
 using { /Verse.org/Simulation }
+
 using { Abilities }
 using { Stats }
 
@@ -120,8 +121,8 @@ default_prefab := class(entity){}
     if:
         Source := Entity.GetSource[]
         Holder := Source.GetStatsHolderEntity[]
-        Stats  := Holder.GetComponent[stats_component]
-        Stat   := Stats.GetStat[StatType]
+        StatsComp  := Holder.GetComponent[stats_component]
+        Stat   := StatsComp.GetStat[StatType]
     then:
         Stat.GetCurrent()
     else:
