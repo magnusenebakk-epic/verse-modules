@@ -8,29 +8,28 @@ using { /Fortnite.com/UI }
 using { /UnrealEngine.com/Temporary/SpatialMath }
 
 using { Abilities }
-using { /createjag@fortnite.com/CustomItemsRPG/UI }
+using { /invaliddomain/MobileGamesTD2/UI }
 
 
 MsgReady<localizes>:message = "READY"
 
 
 ability_cooldown_row<public> := class:
-    AbilityE<public>:entity
+    Gate<public>:cooldown_gate
     Root<public>:widget
     StatusText<public>:text_block
     var<private> StartedSub<private>:?Concurrency.subscription_task(float) = false
     var<private> EndedSub<private>:?Concurrency.subscription_task(tuple()) = false
 
     Initialize<public>():void =
-        if (CC := AbilityE.GetComponent[ability_cooldown_component]):
-            StartTask := CC.CooldownStartedEvent.Subscribe(OnStarted)
-            set StartedSub = option{StartTask}
-            EndTask := CC.CooldownEndedEvent.Subscribe(OnEnded)
-            set EndedSub = option{EndTask}
-            Refresh()
+        StartTask := Gate.CooldownStartedEvent.Subscribe(OnStarted)
+        set StartedSub = option{StartTask}
+        EndTask := Gate.CooldownEndedEvent.Subscribe(OnEnded)
+        set EndedSub = option{EndTask}
+        Refresh()
 
     Refresh<public>():void =
-        if (CC := AbilityE.GetComponent[ability_cooldown_component], CC.IsOnCooldown[]):
+        if (Gate.IsOnCooldown[]):
             StatusText.SetText(S2M("..."))
         else:
             StatusText.SetText(MsgReady)
@@ -59,7 +58,7 @@ ability_cooldown_ui<public> := class(ui_component):
             Row.Initialize()
 
 
-MakeAbilityCooldownRow<public><constructor>(AbilityE:entity, Icon:texture)<transacts> := ability_cooldown_row:
+MakeAbilityCooldownRow<public><constructor>(Gate:cooldown_gate, Icon:texture)<transacts> := ability_cooldown_row:
     let:
         IconBlock := texture_block:
             DefaultImage := Icon
@@ -83,19 +82,23 @@ MakeAbilityCooldownRow<public><constructor>(AbilityE:entity, Icon:texture)<trans
                     HorizontalAlignment := horizontal_alignment.Fill
                     VerticalAlignment := vertical_alignment.Center
 
-    AbilityE := AbilityE
+    Gate := Gate
     Root := RowStack
     StatusText := StatusBlock
 
 
 MakeAbilityCooldownUI<public><constructor>(P:player, ItemEntity:entity)<transacts> := ability_cooldown_ui:
     let:
+        WiredAbilities:[]gated_ability = if (D := ItemEntity.GetComponent[ability_hub_component]):
+            D.GetWiredAbilities()
+        else:
+            array{}
+
         Rows := for:
-            Ability : ItemEntity.FindDescendantEntities(ability_base)
-            CC := Ability.GetComponent[ability_cooldown_component]
-            IC := Ability.GetComponent[icon_component]
+            A : WiredAbilities
+            CG := A.GetCooldownGate[]
         do:
-            MakeAbilityCooldownRow(Ability, IC.Icon)
+            MakeAbilityCooldownRow(CG, A.Icon)
 
         Stack := stack_box:
             Orientation := orientation.Vertical

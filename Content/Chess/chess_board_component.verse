@@ -25,7 +25,7 @@ using { Placement }
 # Interacting with your piece on your turn starts a MOVE SESSION:
 #   legal targets get LegalMarkerPrefab circles (chess_move_highlight),
 #   the aimed square gets the proposal marker (look_aim_placement_method
-#   into grid Snap, same pipeline as the Placement module),
+#   rounded to the board square, run through a stock placement_session),
 #   interacting again commits the aimed move if legal, cancels otherwise.
 # Bot turns run through chess_bot when a seat has no player.
 
@@ -237,10 +237,12 @@ chess_board_component<public> := class<final_super>(component):
         Print("chess dbg: session open, sq {Piece.Square}, {Legal.Length} legal, {LegalTargets.Length} circles")
         Highlight.ShowLegalTargets(Entity, LegalTargets)
         Session := placement_session:
-            Query := placement_query{Player := Seated, PlacableEntity := Entity}
+            Query := placement_query{
+                Player := Seated,
+                PlacableEntity := Entity,
+                Restrictions := array{chess_legal_square_restriction{Board := Self, LegalTargets := for (M : Legal) { M.To }}}}
             Method := chess_square_placement_method{Board := Self, Inner := AimMethod}
-            Restrictions := array{chess_legal_square_restriction{Board := Self, LegalTargets := for (M : Legal) { M.To }}}
-            Highlight := chess_proposal_highlight{Board := Self, Markers := Highlight}
+            Highlights := array{chess_proposal_highlight{Board := Self, Markers := Highlight}}
         var Committed:logic = false
         var SwitchTo:?chess_board_piece_component = false
         race:
@@ -432,11 +434,12 @@ chess_board_component<public> := class<final_super>(component):
             Left := (1.0 * R) * Grid.CellSize,
             Up := 0.0}
 
+    # Rounds to the nearest square center itself: grid_component.Snap now snaps to
+    # rotated cell centers, while the board keeps a1's center at Origin.
     WorldToSquare<internal>(WorldPos:vector3)<transacts><decides>:int =
         Grid := Entity.GetComponent[grid_component]
-        Snapped := Grid.Snap[WorldPos]
         Origin := Entity.GetGlobalTransform().Translation + Grid.OriginOffset
-        Local := Snapped - Origin
+        Local := WorldPos - Origin
         F := Round[Local.Forward / Grid.CellSize]
         R := Round[Local.Left / Grid.CellSize]
         F >= 0

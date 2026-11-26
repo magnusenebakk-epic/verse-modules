@@ -4,15 +4,17 @@ using { Stats }
 using { Abilities }
 
 
-print_stat_action<public> := class(ability_action):
+# Debug use_action: prints the current value of StatType on the use's attributed agent.
+print_stat_action<public> := class(use_action):
 
     @editable
     StatType<public>:subtype(stat_value) = stat_value
 
-    Execute<override>(InteractComponent:active_ability_component, Activator:agent):void =
+    Execute<override>(EffectEntity:entity, Holder:entity):void =
         if:
-            Holder := Activator.GetStatsHolderEntity[]
-            StatsComp := Holder.GetComponent[stats_component]
+            Activator := EffectEntity.GetUseAttribution[Holder]
+            StatsHolder := Activator.GetStatsHolderEntity[]
+            StatsComp := StatsHolder.GetComponent[stats_component]
             Cur := StatsComp.GetStat[StatType]
         then:
             Print("Current {Cur.Name}: {Cur.GetCurrent()}")

@@ -32,7 +32,7 @@ RecursiveSync<public>(Expressions:[](type{_()<suspends>:t}) where t:type)<suspen
             RecursiveSync(LeftExprs)
         Res(0) + Res(1)
     
-    # E1 exists, but Slice 1 fails -> 1 element left
+    # E1 exists but Slice failed, so only one element left
     else if (E1 := Expressions[0]):
         array{E1()}
     else:
@@ -48,7 +48,7 @@ RecursiveRace<public>(Expressions:[](type{_()<suspends>:t}) where t:type)<suspen
             RecursiveRace(RightExprs)
             RecursiveRace(LeftExprs)
     
-    # E1 exists, but Slice fails -> 1 element left
+    # E1 exists but Slice failed, so only one element left
     else if (E1 := Expressions[0]):
         E1()
     else:
@@ -59,7 +59,6 @@ RecursiveRace<public>(Expressions:[](type{_()<suspends>:t}) where t:type)<suspen
 
 
 <#> Collections
-# Removes an element from the given map and returns a new map without that element.
 (Map:[keytype]valuetype where keytype:subtype(comparable), valuetype:type).RemoveKey<public>(ElementToRemove:keytype):[keytype]valuetype=
     var NewMap:[keytype]valuetype = map{}
     for (Key -> Value : Map, Key <> ElementToRemove):
@@ -127,3 +126,6 @@ default_prefab := class(entity){}
         Stat.GetCurrent()
     else:
         DefaultIfMissing
+
+
+

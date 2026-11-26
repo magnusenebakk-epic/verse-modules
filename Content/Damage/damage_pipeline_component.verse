@@ -13,10 +13,8 @@ elimination_event<public> := class:
     Source<public>:?agent
 
 
-# Health stat is canonical; pushes to SetHealth on change. Engine damage
-# heals back, runs the pipeline, drains the stat.
-#
-# PREREQUISITE: disable shields in the playspace.
+# Health stat is the source of truth: engine damage is healed back, run through the pipeline, then drained from the stat.
+# Shields must be disabled in the playspace.
 damage_pipeline_component<public> := class<final_super>(component):
 
     @editable
@@ -25,8 +23,7 @@ damage_pipeline_component<public> := class<final_super>(component):
     @editable
     var IncomingDamageCalc<public>:damage_calc
 
-    # Read by damage-dealers (e.g. projectile_component) before calling
-    # Damage. Source-side; see outgoing_damage_calcs.verse.
+    # Source-side calc; damage dealers read this before calling Damage.
     @editable
     var OutgoingDamageCalc<public>:damage_calc
 
@@ -133,7 +130,6 @@ health_pipeline_watcher<internal> := class:
             # Heal back. Lands before elimination commits in practice.
             Char.SetHealth(Char.GetHealth() + Result.Amount)
 
-            # Clamp so overkill ends at 0.
             Available := Stat.GetCurrent()
             ToDrain := if (Payload.Amount > Available) then Available else Payload.Amount
             if (ToDrain > 0.0):
@@ -143,7 +139,7 @@ health_pipeline_watcher<internal> := class:
                 for (H : Holder.GetDescendantComponentsWithInterface(after_damage_taking_handler)):
                     H.AfterTakingDamage(Payload)
 
-            # SetHealth(0) doesn't trigger engine elimination; force the kill via Damage.
+            # SetHealth(0) doesn't trigger engine elimination, so force the kill via Damage.
             if (Stat.GetCurrent() <= 0.0):
                 set ForcingElimination = true
                 Pipeline.EliminatedEvent.Signal(elimination_event{Victim := Player, Source := Source})
