@@ -49,7 +49,6 @@ stats_component<public> := class<final_super>(component):
         for (S : StatDefs):
             S.RemoveModifiersFrom(Source)
 
-    # stat_type passed explicitly
     AddStat<public>(stat_type:castable_subtype(stat_value), NewStat:stat_type)<transacts><decides>:stat_type =
         not GetStat[stat_type]
         NewStat.Init()

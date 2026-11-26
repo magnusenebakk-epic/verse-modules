@@ -4,7 +4,6 @@ using { /Verse.org/SceneGraph }
 using { /UnrealEngine.com/Itemization }
 
 
-# Item Pickup interactable.
 item_pickup_interactable_component<public> := class<final_super>(basic_interactable_component):
 
     @editable

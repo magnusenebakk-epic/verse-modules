@@ -2,7 +2,7 @@ using { /Verse.org/SceneGraph }
 using { /Verse.org/Simulation }
 
 
-# Threaded through handler stages; handlers mutate Amount.
+# Passed through the handler stages. Handlers mutate Amount.
 damage_payload<public> := class:
     var Amount<public>:float = 0.0
     Source<public>:?agent

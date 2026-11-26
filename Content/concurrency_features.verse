@@ -19,9 +19,7 @@ Concurrency<public> := module:
         Await<override>()<suspends>:t=
             Event.Await()
 
-    # Not cancelable: the engine interface pins Cancel()<transacts>, but our
-    # Cancel signals an event (no_rollback), so it can't conform.
-    # Store these concretely: var Subs:[]subscription_task(payload).
+    # Can't implement cancelable: its Cancel() is <transacts> but ours signals an event (no_rollback), so store these concretely.
     subscription_task<public>(t:type) := class<internal>:
         Callback : type{_(:t):void}
         Event : event(t)

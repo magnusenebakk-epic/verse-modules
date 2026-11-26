@@ -2,7 +2,7 @@ using { /Verse.org/SceneGraph }
 using { /Verse.org/Simulation }
 using { /UnrealEngine.com/Itemization }
 
-# Strategy for "what entity goes into inventory on pickup"
+# Decides what entity actually goes into the inventory on pickup.
 pickup_target_provider<public> := class<abstract>:
     ProvideTarget<public>(InteractComponent:item_pickup_interactable_component):entity
     AfterPickup<public>(InteractComponent:item_pickup_interactable_component):void = {}

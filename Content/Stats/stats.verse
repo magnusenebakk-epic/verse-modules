@@ -35,14 +35,12 @@ modifier_with_source := class:
     Source:entity
 
 
-# StatChangedEvent payload.
 stat_change<public> := class:
     Stat<public>:stat_value
     OldValue<public>:float
     NewValue<public>:float
 
 
-# Stat min/max source.
 stat_bound<public> := class<abstract>:
     Get<public>()<reads>:float
 
@@ -55,7 +53,6 @@ fixed_stat_bound<public> := class<concrete>(stat_bound):
     Get<override>()<computes>:float = Value
 
 
-# uses Default if the ref isn't found.
 stat_ref_stat_bound<public> := class(stat_bound):
 
     @editable

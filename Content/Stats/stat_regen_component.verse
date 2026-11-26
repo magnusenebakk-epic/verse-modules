@@ -2,8 +2,7 @@ using { /Verse.org/SceneGraph }
 using { /Verse.org/Simulation }
 
 
-# RateStat: rate comes from a stat (mana_regen_rate, etc.) so buffs modify
-# it via the standard stat_modifier system. RatePerSec is the fallback
+# RateStat drives the rate so buffs can modify it via stat_modifier; RatePerSec is the fallback.
 regen_entry<public> := class<concrete>:
 
     @editable
@@ -19,7 +18,6 @@ regen_entry<public> := class<concrete>:
     var Cap<public>:?float = false
 
 
-# Ticks each entry, restores up to headroom.
 stat_regen_component<public> := class<final_super>(component):
 
     @editable
